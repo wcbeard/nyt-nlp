@@ -4,11 +4,12 @@
 # <codecell>
 
 #import requests
+from __future__ import division
 import json
 import pandas as pd
 import numpy as np
 from time import sleep
-from itertools import count
+from itertools import count, imap, starmap
 #import cPickle as pickle
 #from lxml.cssselect import CSSSelector
 #from lxml.html import fromstring
@@ -84,28 +85,30 @@ filter(lambda x: 'title' not in x, raw)
 # <codecell>
 
 def format(txt):
-    tt = re.sub(r'[\.\,\;\:\'\"\(\)\&\%\*\+\[\]\=\?\!/]', '', txt).lower()
+    tt = re.sub(r"'s\b", '', txt).lower()
+    tt = re.sub(r'[\.\,\;\:\'\"\(\)\&\%\*\+\[\]\=\?\!/]', '', tt)    
     tt = re.sub(r' *\$[0-9]\S* ?', ' <money> ', tt)    
     tt = re.sub(r' *[0-9]\S* ?', ' <num> ', tt)    
     tt = re.sub(r'[\-\s]+', ' ', tt)
     return tt.strip().split()
 
+# <codecell>
+
+dols = ["shay's"]
+#' '.join(dols)
+#txt = format(_txt)
+#print txt[:10]
+#t = format(_t)
+#sorted(t)
+format(' '.join(dols))
+
 # <rawcell>
 
-# ' '.join(dols)
-# #txt = format(_txt)
-# #print txt[:10]
-# #t = format(_t)
-# #sorted(t)
-# #format(' '.join(dols))
+# map(itemgetter('url'), raw)
 
-# <codecell>
+# <rawcell>
 
-map(itemgetter('url'), raw)
-
-# <codecell>
-
-len(raw)
+# len(raw)
 
 # <codecell>
 
@@ -156,73 +159,321 @@ tcorpus = dmap(tfidf, corpus)
 #otcorpus = dmap(otfidf, ocorpus)
 #atcorpus = dmap(atfidf, acorpus)
 
+# <rawcell>
+
+# lda = gensim.models.ldamodel.LdaModel(corpus=tcorpus, id2word=dictionary, num_topics=15, update_every=0, passes=20)
+
 # <codecell>
 
-lda = gensim.models.ldamodel.LdaModel(corpus=tcorpus, id2word=dictionary, num_topics=15, update_every=0, passes=20)
+model = models.lsimodel.LsiModel(corpus=tcorpus, id2word=dictionary, num_topics=7)
 
 # <rawcell>
 
 # olda = gensim.models.ldamodel.LdaModel(corpus=otcorpus, id2word=odictionary, num_topics=15, update_every=0, passes=20)
-
-# <rawcell>
-
 # alda = gensim.models.ldamodel.LdaModel(corpus=atcorpus, id2word=adictionary, num_topics=15, update_every=0, passes=20)
-
-# <codecell>
-
-np.random.randint(len(raw), size=3)# (raw, replace=0)
-
-# <codecell>
-
-
-# <codecell>
-
-d = raw[0]['date']
-print d
-datef = lambda d: dt.datetime.strptime(d, '%Y%m%d').strftime('%b %Y')
 
 # <codecell>
 
 all(map(itemgetter('text'), raw))
 
+# <rawcell>
+
+# topic_data = []
+# _topic_stats = []
+# randi = np.random.randint(len(raw), size=3)
+# randi = xrange(len(raw))
+# for mod in (lda,):# olda, alda:
+#     topic_list = [[w for _, w in tups] for tups in mod.show_topics(formatted=0, topn=15, topics=None)]
+#     for tit, _text, date in map(itemgetter(u'title', 'text', 'date'), (raw[i] for i in randi)):
+#         text = format(_text)
+#         _srtd = sorted(mod[dictionary.doc2bow(text)], key=itemgetter(1), reverse=1)#[:2]
+#         top, score = _srtd[:2][-1]
+#         topic_data.append((tit, date, top, score))
+#         _topic_stats.append(_srtd)
+# #        print top, score
+#         continue
+#         print tit, date
+#         for top, score in sorted(mod[dictionary.doc2bow(text)], key=itemgetter(1), reverse=1):
+#             #if top == 11: continue
+#             print top, '%.2f' % score, ', '.join(topic_list[top])
+#         print
+# topic_stats = [tup for tups in _topic_stats for tup in tups]
+
 # <codecell>
 
 topic_data = []
-randi = np.random.randint(len(raw), size=3)
-for mod in (lda,):# olda, alda:
-    topic_list = [[w for _, w in tups] for tups in mod.show_topics(formatted=0, topn=15, topics=None)]
-    for tit, _text, date in map(itemgetter(u'title', 'text', 'date'), (raw[i] for i in randi)):
-        text = format(_text)
-        #date = datef(_date)
-        #date = dt.datetime.strptime(_date, '%Y%m%d')
- #       print date, '--', tit
-        
-         # [format(doc['text']) for doc in raw]
-        #print mod[tcorpus[0]]
-    #    print ' '.join(texts[0])
-        _srtd = sorted(mod[dictionary.doc2bow(text)], key=itemgetter(1), reverse=1)[:2]
-        top, score = _srtd[-1]
-        topic_data.append((tit, date, top, score))
-#        print top, score
-       # continue
-        print tit, date
-        for top, score in sorted(mod[dictionary.doc2bow(text)], key=itemgetter(1), reverse=1):
-            #if top == 11: continue
-            print top, '%.2f' % score, ', '.join(topic_list[top])
-        print
+_topic_stats = []
+_kwargs = dict(formatted=0, topn=15, topics=None)
+_kwargs = dict(formatted=0, num_words=15)
+topic_words = [[w for _, w in tups] for tups in model.show_topics(**_kwargs)]
+
+for tit, _text, date in imap(itemgetter(u'title', 'text', 'date'), raw):
+    text = format(_text)
+    _srtd = sorted(model[dictionary.doc2bow(text)], key=itemgetter(1), reverse=1)#[:2]
+    top, score = _srtd[:2][0]
+    topic_data.append((tit, date, top, score))
+    _topic_stats.append(_srtd)
+
+topic_stats = [tup for tups in _topic_stats for tup in tups]
 
 # <codecell>
 
 _df = pd.DataFrame(topic_data, columns=['Title', 'Date', 'Topic', 'Score'])
+df = _df#.set_index('Date').sort_index()#.head()
+
+# <codecell>
+
+sdf = pd.DataFrame(topic_stats, columns=['Topic', 'Score'])
+#df = _df.set_index('Date').sort_index()#.head()
+topic_mean = sdf.groupby('Topic').mean()['Score']
+#topic_mean
+
+# <codecell>
+
+df.head()
+
+# <codecell>
+
+center = lambda top, score: score - topic_mean[top]
+center_list = lambda lst: [(top, center(top, score)) for top, score in lst]
+centered_scores = [max(center_list(lst), key=itemgetter(1)) for lst in _topic_stats]
+second_scores = [sorted(lst, key=itemgetter(1),  reverse=1)[:2][-1] for lst in _topic_stats]
+
+# <codecell>
+
+df.Topic, df.Score = zip(*centered_scores)
+#df.Topic, df.Score = zip(*second_scores)
+
+# <codecell>
+
 df = _df.set_index('Date').sort_index()#.head()
 
 # <codecell>
 
-df
+df.head()
 
 # <codecell>
 
 df.Topic.hist()
+
+# <codecell>
+
+second_scores[:5]
+
+# <codecell>
+
+df.head(20)
+
+# <codecell>
+
+year = lambda x: x.year
+#df.reset_index().groupby(['Date', 'Topic']).size()
+sz = df.groupby(['Topic', year]).size()
+sz.index.names[1] = 'Year'
+
+# <rawcell>
+
+# sz
+
+# <codecell>
+
+from itertools import cycle
+
+# <codecell>
+
+vc = df.Topic.value_counts()
+vc /= vc.sum()
+vc
+
+# <codecell>
+
+styles = cycle(['-', '--', '-.', ':'])
+
+# <codecell>
+
+def plottable(k, gp, thresh=.15):
+    _gp = gp.set_index('Year')[0]
+    _gp = (_gp / _gp.sum())
+    mx = _gp.max()    
+    if mx < thresh:
+        return
+    return k, _gp
+
+    
+    
+
+# <codecell>
+
+yr_grps = filter(bool, starmap(plottable, sz.reset_index().groupby('Topic')))
+
+# <codecell>
+
+plt.figsize(10, 8)
+cols = cycle('rgbcmyk')
+_rep = int(round(len(yr_grps) / 2))
+styles = cycle((['-'] * _rep) + (['--'] * _rep))
+tops = []
+for k, gp in yr_grps:
+    gp.plot(color=cols.next(), ls=styles.next())
+    print '{}, {}, {:.1f}'.format(k, gp.idxmax(), gp.max() * 100)
+    tops.append(k)
+    #gp.set_index('Year')[0].plot()
+_ = plt.legend(tops)
+
+# <markdowncell>
+
+# Topics 7, 9 and 0 14 peaked in 1998, while 8 and 4 peaked a year earlier.
+
+# <codecell>
+
+import itertools
+
+# <codecell>
+
+list(itertools.combinations([1, 2, 3], 2))
+
+# <codecell>
+
+lst
+
+# <codecell>
+
+combos = [list(itertools.combinations(lst, 2)) for lst in [map(itemgetter(0), _lst) for _lst in _topic_stats] if len(lst) > 1]
+combos[:3]
+
+# <codecell>
+
+from collections import defaultdict
+
+# <codecell>
+
+def _cnt(lst):
+    for tup in lst:
+        _cnt.dct[tuple(sorted(tup))] += 1
+_cnt.dct = defaultdict(int)
+_ = map(_cnt, combos)
+
+# <codecell>
+
+_cnt.dct
+
+# <codecell>
+
+_df = pd.DataFrame(_cnt.dct.items()).set_index(0).sort(1, ascending=0)
+_df
+
+# <codecell>
+
+_topic_words = [', '.join(w for w in wds) for wds in topic_words]
+
+# <rawcell>
+
+# t98 = 7, 9, 0, 14
+# t97 = 8, 4
+# for i in t97:
+#     print _topic_words[i]
+# print
+# for i in t98:
+#     print _topic_words[i]
+
+# <codecell>
+
+c = Counter([w for subl in topic_words for w in subl])
+
+# <codecell>
+
+c
+
+# <codecell>
+
+vc
+
+# <codecell>
+
+for i, wds in enumerate(_topic_words):
+    print '{} ({:.1f}%): {}'.format(i, vc[i] * 100, wds) # reduce num of topics
+
+# <codecell>
+
+_s = sorted(((b['title'], b['date'].year) for b in filter(lambda x: 'huang' in x['text'].lower(), raw)), key=itemgetter(1))
+for t, y in _s:
+    print '{}: {}'.format(y, t)
+
+# <codecell>
+
+_topic_words
+
+# <codecell>
+
+sorted(map(itemgetter('title', 'date'), filter(lambda x: 'waldholtz' in x['text'].lower(), raw)), key=itemgetter(1))
+
+# <markdowncell>
+
+# [KPMG](http://www.nytimes.com/2004/01/13/business/changes-at-kpmg-after-criticism-of-its-tax-shelters.html) and [Sioux](http://www.nytimes.com/2010/08/02/opinion/02mon3.html), hmo coincides w/ time
+
+# <codecell>
+
+raw[:2]
+
+# <rawcell>
+
+# plt.figsize(10, 8)
+# cols = cycle('rgbcmyk')
+# styles = cycle(['-'] * , '--'])
+# tops = []
+# for k, gp in sz.reset_index().groupby('Topic'):
+#     _gp = gp.set_index('Year')[0]
+#     _gp = (_gp / _gp.sum())
+#     mx = _gp.max()
+#     if mx < .15:
+#         continue
+#     _gp.plot(color=cols.next(), ls=styles.next())
+#     print '{}, {}, {:.1f}'.format(k, _gp.idxmax(), mx * 100)
+#     tops.append(k)
+#     #gp.set_index('Year')[0].plot()
+# _ = plt.legend(tops)
+
+# <codecell>
+
+df.groupby(year).size().plot()
+
+# <codecell>
+
+df['Year'] = df.index.map(year)
+
+# <codecell>
+
+pd.options.display.max_colwidth = 120
+
+# <codecell>
+
+for top in vc.index[:7]:
+    print ', '.join(topic_words[top])
+
+# <codecell>
+
+pd.options.display.max_colwidth
+vc = df[df.Year == 1998][['Title', 'Topic']].Topic.value_counts()
+vc
+
+# <codecell>
+
+df.head(100)
+
+# <codecell>
+
+k
+
+# <codecell>
+
+gp
+
+# <codecell>
+
+
+# <codecell>
+
+sz.plot()
 
 # <codecell>
 
