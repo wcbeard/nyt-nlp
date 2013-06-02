@@ -48,7 +48,7 @@ for dct in raw:
 
 # <markdowncell>
 
-# ##Extraction
+# ##Model generation
 
 # <codecell>
 
@@ -70,19 +70,20 @@ corpus = [dictionary.doc2bow(text) for text in texts]
 tfidf = models.TfidfModel(corpus)
 tcorpus = dmap(tfidf, corpus)
 
-# <rawcell>
-
-# lda = gensim.models.ldamodel.LdaModel(corpus=tcorpus, id2word=dictionary, num_topics=15, update_every=0, passes=20)
-
 # <codecell>
 
+#lda = models.ldamodel.LdaModel(corpus=tcorpus, id2word=dictionary, num_topics=15, update_every=0, passes=20)
 model = models.lsimodel.LsiModel(corpus=tcorpus, id2word=dictionary, num_topics=6)
+
+# <markdowncell>
+
+# ##Analysis
 
 # <codecell>
 
 topic_data = []
 _topic_stats = []
-_kwargs = dict(formatted=0, topn=15, topics=None)
+#_kwargs = dict(formatted=0, topn=15, topics=None)
 _kwargs = dict(formatted=0, num_words=15)
 topic_words = [[w for _, w in tups] for tups in model.show_topics(**_kwargs)]
 
@@ -97,8 +98,38 @@ topic_stats = [tup for tups in _topic_stats for tup in tups]
 
 # <codecell>
 
+pd.DataFrame(zip(*topic_words))
+
+# <codecell>
+
+ickes: clinton deputy chief of staff http://en.wikipedia.org/wiki/Harold_M._Ickes
+Charlie Trie
+ickes http://www.nytimes.com/1997/09/21/magazine/bill-clinton-s-garbage-man.html?pagewanted=all&src=pm
+
+# <codecell>
+
+pd.options.display.max_colwidth = 100
+
+# <rawcell>
+
+# df[df.Topic == 3].sort('Date')[['Title', 'Date']]
+
+# <rawcell>
+
+# search('enron')
+
+# <codecell>
+
 _df = pd.DataFrame(topic_data, columns=['Title', 'Date', 'Topic', 'Score'])
 df = _df#.set_index('Date').sort_index()#.head()
+
+# <codecell>
+
+df.head()
+
+# <codecell>
+
+df.Topic.value_counts()
 
 # <codecell>
 
@@ -106,6 +137,14 @@ sdf = pd.DataFrame(topic_stats, columns=['Topic', 'Score'])
 #df = _df.set_index('Date').sort_index()#.head()
 topic_mean = sdf.groupby('Topic').mean()['Score']
 #topic_mean
+
+# <codecell>
+
+topic_mean
+
+# <codecell>
+
+sdf.head()
 
 # <codecell>
 
@@ -140,22 +179,22 @@ df.Topic.hist()
 
 year = lambda x: x.year
 #df.reset_index().groupby(['Date', 'Topic']).size()
-sz = df.groupby(['Topic', year]).size()
+sz = df.set_index('Date').groupby(['Topic', year]).size()
 sz.index.names[1] = 'Year'
 
 # <rawcell>
 
 # sz
 
+# <rawcell>
+
+# vc = df.Topic.value_counts()
+# vc /= vc.sum()
+# vc
+
 # <codecell>
 
-vc = df.Topic.value_counts()
-vc /= vc.sum()
-vc
-
-# <codecell>
-
-styles = cycle(['-', '--', '-.', ':'])
+styles = cycle(['-'])#, '--', '-.', ':'])
 
 # <codecell>
 
@@ -167,9 +206,6 @@ def plottable(k, gp, thresh=.15):
         return
     return k, _gp
 
-    
-    
-
 # <codecell>
 
 yr_grps = filter(bool, starmap(plottable, sz.reset_index().groupby('Topic')))
@@ -179,7 +215,7 @@ yr_grps = filter(bool, starmap(plottable, sz.reset_index().groupby('Topic')))
 plt.figsize(10, 8)
 cols = cycle('rgbcmyk')
 _rep = int(round(len(yr_grps) / 2))
-styles = cycle((['-'] * _rep) + (['--'] * _rep))
+styles = cycle('-')  #cycle((['-'] * _rep) + (['--'] * _rep))
 tops = []
 for k, gp in yr_grps:
     gp.plot(color=cols.next(), ls=styles.next())
@@ -256,6 +292,11 @@ vc
 
 for i, wds in enumerate(_topic_words):
     print '{} ({:.1f}%): {}'.format(i, vc[i] * 100, wds) # reduce num of topics
+
+# <codecell>
+
+search = lambda wrd: sorted(((b['title'], b['date'].year) for b in filter(lambda x: wrd in x['text'].lower(), raw)), key=itemgetter(1))
+search('fordham')
 
 # <codecell>
 
