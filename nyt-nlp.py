@@ -3,17 +3,12 @@
 
 # <codecell>
 
-#import requests
 from __future__ import division
 import json
 import pandas as pd
 import numpy as np
 from time import sleep
 from itertools import count, imap, starmap, cycle
-#import cPickle as pickle
-#from lxml.cssselect import CSSSelector
-#from lxml.html import fromstring
-#import redis
 import pymongo
 import re
 from operator import itemgetter
@@ -51,33 +46,6 @@ for dct in raw:
     if 'title' not in dct:
         dct['title'] = ''
 
-# <codecell>
-
-filter(lambda x: 'text' not in x, db.raw_text.find())
-
-# <codecell>
-
-filter(lambda x: 'title' not in x, raw)
-
-# <rawcell>
-
-# _txt = raw[0]['text']
-
-# <rawcell>
-
-# def catch():
-#     for t in map(itemgetter('text'), raw):
-#         for w in format(t):
-#             if w.startswith("'"):  
-#                 print w
-#                 return t
-# _t = catch()
-# _t
-
-# <rawcell>
-
-# c = Counter(txt)
-
 # <markdowncell>
 
 # ##Extraction
@@ -92,72 +60,15 @@ def format(txt):
     tt = re.sub(r'[\-\s]+', ' ', tt)
     return tt.strip().split()
 
-# <codecell>
-
-dols = ["shay's"]
-#' '.join(dols)
-#txt = format(_txt)
-#print txt[:10]
-#t = format(_t)
-#sorted(t)
-format(' '.join(dols))
-
-# <rawcell>
-
-# map(itemgetter('url'), raw)
-
-# <rawcell>
-
-# len(raw)
-
-# <codecell>
-
-texts = [format(doc['text']) for doc in raw]
-#opinions = [format(doc['text']) for doc in raw if '/opinion/' in doc['url']]
-#articles = [format(doc['text']) for doc in raw if '/opinion/' not in doc['url']]
-
-# <rawcell>
-
-# articles[0]
-
-# <codecell>
-
 dmap = lambda dct, a: [dct[e] for e in a]
 
 # <codecell>
 
+texts = [format(doc['text']) for doc in raw]
 dictionary = corpora.Dictionary(texts)
-#odictionary = corpora.Dictionary(opinions)
-#adictionary = corpora.Dictionary(articles)
-
-# <rawcell>
-
-# dols = sorted(dictionary.token2id)[-20:]
-# dols
-
-# <codecell>
-
 corpus = [dictionary.doc2bow(text) for text in texts]
-#ocorpus = [odictionary.doc2bow(text) for text in opinions]
-#acorpus = [adictionary.doc2bow(text) for text in articles]
-
-# <codecell>
-
 tfidf = models.TfidfModel(corpus)
-#otfidf = models.TfidfModel(ocorpus)
-#atfidf = models.TfidfModel(acorpus)
-
-# <rawcell>
-
-# #Common words, count vs tfidf
-# sorted([(dictionary[w], ct) for w, ct in tfidf[corpus[0]]], key=itemgetter(1), reverse=1)
-# sorted([(dictionary[w], ct) for w, ct in corpus[0]], key=itemgetter(1), reverse=1)
-
-# <codecell>
-
 tcorpus = dmap(tfidf, corpus)
-#otcorpus = dmap(otfidf, ocorpus)
-#atcorpus = dmap(atfidf, acorpus)
 
 # <rawcell>
 
@@ -166,15 +77,6 @@ tcorpus = dmap(tfidf, corpus)
 # <codecell>
 
 model = models.lsimodel.LsiModel(corpus=tcorpus, id2word=dictionary, num_topics=6)
-
-# <rawcell>
-
-# olda = gensim.models.ldamodel.LdaModel(corpus=otcorpus, id2word=odictionary, num_topics=15, update_every=0, passes=20)
-# alda = gensim.models.ldamodel.LdaModel(corpus=atcorpus, id2word=adictionary, num_topics=15, update_every=0, passes=20)
-
-# <codecell>
-
-all(map(itemgetter('text'), raw))
 
 # <codecell>
 
