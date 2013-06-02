@@ -9,7 +9,7 @@ import json
 import pandas as pd
 import numpy as np
 from time import sleep
-from itertools import count, imap, starmap
+from itertools import count, imap, starmap, cycle
 #import cPickle as pickle
 #from lxml.cssselect import CSSSelector
 #from lxml.html import fromstring
@@ -165,7 +165,7 @@ tcorpus = dmap(tfidf, corpus)
 
 # <codecell>
 
-model = models.lsimodel.LsiModel(corpus=tcorpus, id2word=dictionary, num_topics=7)
+model = models.lsimodel.LsiModel(corpus=tcorpus, id2word=dictionary, num_topics=6)
 
 # <rawcell>
 
@@ -175,29 +175,6 @@ model = models.lsimodel.LsiModel(corpus=tcorpus, id2word=dictionary, num_topics=
 # <codecell>
 
 all(map(itemgetter('text'), raw))
-
-# <rawcell>
-
-# topic_data = []
-# _topic_stats = []
-# randi = np.random.randint(len(raw), size=3)
-# randi = xrange(len(raw))
-# for mod in (lda,):# olda, alda:
-#     topic_list = [[w for _, w in tups] for tups in mod.show_topics(formatted=0, topn=15, topics=None)]
-#     for tit, _text, date in map(itemgetter(u'title', 'text', 'date'), (raw[i] for i in randi)):
-#         text = format(_text)
-#         _srtd = sorted(mod[dictionary.doc2bow(text)], key=itemgetter(1), reverse=1)#[:2]
-#         top, score = _srtd[:2][-1]
-#         topic_data.append((tit, date, top, score))
-#         _topic_stats.append(_srtd)
-# #        print top, score
-#         continue
-#         print tit, date
-#         for top, score in sorted(mod[dictionary.doc2bow(text)], key=itemgetter(1), reverse=1):
-#             #if top == 11: continue
-#             print top, '%.2f' % score, ', '.join(topic_list[top])
-#         print
-# topic_stats = [tup for tups in _topic_stats for tup in tups]
 
 # <codecell>
 
@@ -254,15 +231,8 @@ df.head()
 
 # <codecell>
 
+plt.figsize(6, 4)
 df.Topic.hist()
-
-# <codecell>
-
-second_scores[:5]
-
-# <codecell>
-
-df.head(20)
 
 # <codecell>
 
@@ -274,10 +244,6 @@ sz.index.names[1] = 'Year'
 # <rawcell>
 
 # sz
-
-# <codecell>
-
-from itertools import cycle
 
 # <codecell>
 
@@ -326,10 +292,6 @@ _ = plt.legend(tops)
 
 # <codecell>
 
-import itertools
-
-# <codecell>
-
 list(itertools.combinations([1, 2, 3], 2))
 
 # <codecell>
@@ -357,10 +319,10 @@ _ = map(_cnt, combos)
 
 _cnt.dct
 
-# <codecell>
+# <rawcell>
 
-_df = pd.DataFrame(_cnt.dct.items()).set_index(0).sort(1, ascending=0)
-_df
+# _df = pd.DataFrame(_cnt.dct.items()).set_index(0).sort(1, ascending=0)
+# _df
 
 # <codecell>
 
@@ -395,9 +357,103 @@ for i, wds in enumerate(_topic_words):
 
 # <codecell>
 
-_s = sorted(((b['title'], b['date'].year) for b in filter(lambda x: 'huang' in x['text'].lower(), raw)), key=itemgetter(1))
+search = lambda wrd: sorted(((b['title'], b['date'].year) for b in filter(lambda x: wrd in x['text'].lower(), raw)), key=itemgetter(1))
+_s = sorted(((b['title'], b['date'].year) for b in filter(lambda x: 'hastert' in x['text'].lower(), raw)), key=itemgetter(1))
 for t, y in _s:
     print '{}: {}'.format(y, t)
+
+# <codecell>
+
+span = lambda seq: range(min(seq), max(seq) + 1)
+
+# <codecell>
+
+plt.figsize(12, 12)
+topics = df.Topic.unique()
+N = len(topics) // 2
+for i, topic in enumerate(sorted(topics)):
+    plt.subplot(N * 100 + 20 + i + 1)
+    a = df[df.Topic == topic].index.map(lambda x: x.year)
+    plt.hist(a, bins=span(a))
+    plt.ylabel('Topic #{}'.format(topic))
+    plt.title(tformat(topic_words[i]))
+plt.tight_layout()
+plt.figsize(6, 4)
+
+# <rawcell>
+
+# filter(lambda x: x['title'] == 'Democrat Urges Foley to Resign In Bank Scandal', raw)
+
+# <codecell>
+
+df[df.Title == 'Democrat Urges Foley to Resign In Bank Scandal']
+
+# <codecell>
+
+set(topic_words[3]) & set(topic_words[5])
+
+# <codecell>
+
+sorted((jaccard(topic_words[i], topic_words[j]), i, j) for i, j in itertools.combinations(range(len(topic_words)), 2))[::-1]
+
+# <codecell>
+
+for i, j in itertools.combinations(range(len(topic_words)), 2):
+#    N = len(set(topic_words[i]) & set(topic_words[j])) / len(topic_words[i])
+    print i, j, jaccard(topic_words[i], topic_words[j])
+
+# <codecell>
+
+jaccard = lambda a, b: len(set(a) & set(b)) / len(set(a) | set(b))
+
+# <codecell>
+
+for i in range(len(topic_words)):
+    for j in range(len(topic_words)):
+        if i == j: continue
+            
+
+# <codecell>
+
+search('meehan')
+
+# <rawcell>
+
+# Tom Foley speaker until '95, Hastert was there forever
+# Marty Meehan was a major sponsor of campaign finance reform bills
+
+# <codecell>
+
+df[df.Topic == 2].Title
+
+# <codecell>
+
+df[-5:]
+
+# <codecell>
+
+
+# <codecell>
+
+def tformat(l):
+    N = len(l) // 3
+    f = lambda x: ', '.join(x)
+    return '\n'.join([f(l[:N]), f(l[N:2 * N]), f(l[2 * N:])])
+
+topic_words[1]
+
+# <codecell>
+
+print tformat(topic_words[0])
+
+# <codecell>
+
+topic
+
+# <codecell>
+
+a = df[df.Topic == topic].index.map(lambda x: x.year)
+plt.hist(a)
 
 # <codecell>
 
