@@ -63,10 +63,9 @@ params = {'query': 'body:scandal+{} geo_facet:[UNITED STATES]'.format(party),
             'begin_date': '19920101',
             'end_date': '20131201',
             'fields': 'title,url,date',
-            'offset': page
+            'offset': page,
+            'api-key': apikey
 }
-params.update(apiparams)
-all_pages = {'pagewanted': 'all'}
 
 # <codecell>
 
@@ -112,16 +111,16 @@ def grab_text(url, verbose=True):
         print grab_text.c,
     grab_text.c += 1
     r = requests.get(url, params=all_pages)
-    h = fromstring(r.content)
+    content = fromstring(r.content)
     for _sel in _sels:
-        sel = CSSSelector(_sel)
-        sh = sel(h)
-        if sh:
-            return '\n'.join(map(get_text, sh))
+        text_elems = CSSSelector(_sel)(content)
+        if text_elems:
+            return '\n'.join(map(get_text, text_elems))
     return ''
 
 #Selectors where text of articles can be found; quite a few patterns among NYT articles
 _sels =  ['p[itemprop="articleBody"]', "div.blurb-text", 'div#articleBody p', 'div.articleBody p', 'div.mod-nytimesarticletext p']
+all_pages = {'pagewanted': 'all'}
 
 # <codecell>
 
