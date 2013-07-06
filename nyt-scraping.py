@@ -49,7 +49,7 @@ import datetime as dt
 
 # <markdowncell>
 
-# We need to connect to the database, assuming it's already running (`mongod` from the terminal)
+# We need to connect to the database, assuming it's already running (`mongod` from the terminal).
 
 # <codecell>
 
@@ -88,6 +88,10 @@ params = {'query': 'body:scandal+{} geo_facet:[UNITED STATES]'.format(party),
             'api-key': apikey
 }
 
+# <markdowncell>
+
+# After constructing the query, we grab the search results with [requests](http://docs.python-requests.org/en/latest/). There's no way to tell how many results there will be, so we go as long as we can, shoving everything into MongoDB, incrementing the `offset` query parameter and pausing for a break before the next page of results (the NYT has a limit on how many times you can query them per second).
+
 # <codecell>
 
 fdate = lambda d: dt.datetime.strptime(d, '%Y%m%d')
@@ -104,7 +108,7 @@ for page in count():  #keep looping indefinitely
     else:  #no more results
         break
     print page,
-    sleep(.2)  #nyt doesn't like it if you ask too often
+    sleep(.2)
 #urls = {r['url']: r for r in url_lst}    
 #del url_lst
 
@@ -112,9 +116,17 @@ for page in count():  #keep looping indefinitely
 
 # ##Scrape Text
 
+# <markdowncell>
+
+# Here are a few of the resulting URLS that we'll use to get the full text articles:
+
 # <codecell>
 
 [doc['url'] for doc in db.raw_text.find()][:5]
+
+# <markdowncell>
+
+# The scraping wasn't as difficult as I was expecting; over the 20 or so years that I searched for, the body text of the articles could be found by looking at 5 html elements (formatted as CSS selectors in `_sels` below). The following two functions do most of the scraping work-- `get_text`...well...gets the text from the `CSSSelector` parser, and the `grab_text` uses this after pulling the html with requests again.
 
 # <codecell>
 
@@ -143,6 +155,12 @@ def grab_text(url, verbose=True):
 _sels =  ['p[itemprop="articleBody"]', "div.blurb-text", 'div#articleBody p', 'div.articleBody p', 'div.mod-nytimesarticletext p']
 all_pages = {'pagewanted': 'all'}
 
+# <markdowncell>
+
+# And here is the main loop and counter. Pretty simple, huh?
+# 
+# One the first run, the output counts up from zero, but since political scandals seem to be popping up by the hour, I've updated the search a few times, but only pulling articles that aren't already in the database (hence the mostly underscored output below).
+
 # <codecell>
 
 grab_text.c = 0
@@ -156,7 +174,18 @@ for doc in db.raw_text.find():
 
 db.raw_text.remove({'text': u''})  #there was one weird result that didn't have any text...
 
+# <markdowncell>
+
+# And, we got more than 870 scandalous stories...but still counting.
+
 # <codecell>
 
 len(list(db.raw_text.find()))
+
+# <markdowncell>
+
+# ###Conclusion
+# Though it turned out to be pretty brief, I thought this first part of my NYT scandals project deserved its own post.
+# Luckily it doesn't take too much effort or space when you're working with a nice, expressive language, though.
+# And you can reproduce this for yourself--you can find a copy of this notebook on github.
 
