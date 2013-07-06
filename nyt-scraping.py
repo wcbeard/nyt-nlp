@@ -60,14 +60,18 @@ db = connection.nyt
 
 # ##Get URLs
 
+# <markdowncell>
+
+# After using your secret API key...
+
 # <codecell>
 
 from key import apikey
 apiparams = {'api-key': apikey}
 
-# <rawcell>
+# <markdowncell>
 
-# The first thing we need to get is the urls for all the articles that match our search criterion. This is a bit convoluted, since I couldn't find a way to search for *republican OR democrat*, so I ended up just repeating the query both times. I found out that there are lots of really interesting curated details you can search for, such as searching for articles pertaining to certain geographic areas, people or organizations. I used this to narrow the results down to the US, restricted the dates to between 1992-2013, and just asked for title, URL and date to use as unique identifiers.
+# ...the first thing we need to get is the urls for all the articles that match our search criterion. This is a bit convoluted, since I couldn't find a way to search for *republican OR democrat*, so I ended up just repeating the query both times. I found out that there are lots of really interesting curated details you can use in the search, such as searching for articles pertaining to certain geographic areas, people or organizations. I used some of these features to narrow the results down to the US, restricted the dates to between 1992-2013, and just asked for title, URL and date to use as unique identifiers.
 
 # <codecell>
 
@@ -77,7 +81,6 @@ party = 'republican'
 
 q = 'http://api.nytimes.com/svc/search/v1/article?'
 params = {'query': 'body:scandal+{} geo_facet:[UNITED STATES]'.format(party),
-            #'facets': 'des_facet,per_facet,geo_facet,classifiers_facet,org_facet', #'org_facet',
             'begin_date': '19920101',
             'end_date': '20131201',
             'fields': 'title,url,date',
