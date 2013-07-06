@@ -13,19 +13,16 @@
 
 # <markdowncell>
 
-# This document uses the [NYT API](http://developer.nytimes.com/docs/read/article_search_api_v2) to search for articles on US politics that include the word *scandal*, and several python libraries to grab the text of those articles and store them to MongoDB for some natural language processing analytics.
+# This post uses the [New York Times API](http://developer.nytimes.com/docs/read/article_search_api_v2) to search for articles on US politics that include the word *scandal*, and several python libraries to grab the text of those articles and store them to MongoDB for some natural language processing analytics.
 
 # <markdowncell>
 
 # These commands will install some of the dependencies for this project:
-
-# <codecell>
-
-%%bash
-pip install pymongo
-pip install requests
-pip install lxml
-pip install cssselect
+# 
+#     pip install pymongo
+#     pip install requests
+#     pip install lxml
+#     pip install cssselect
 
 # <codecell>
 
