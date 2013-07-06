@@ -1,21 +1,31 @@
 # -*- coding: utf-8 -*-
 # <nbformat>3.0</nbformat>
 
-# <rawcell>
+# <markdowncell>
 
-# pip install pymongo
-# pip install requests
-# pip install lxml
-# pip install cssselect
+# {"Title": "NYT nlp",
+# "Date": "2013-7-4",
+# "Category": "ipython",
+# "Tags": "nlp, ipython",
+# "slug": "slug-slug-slug",
+# "Author": "Chris"
+# }
 
-# <rawcell>
+# <markdowncell>
 
-# import redis
-# import cPickle as pickle
-# import numpy as np
-# import pandas as pd
-# import myutils as mu
-# mu.psettings(pd)
+# This document uses the [NYT API](http://developer.nytimes.com/docs/read/article_search_api_v2) to search for articles on US politics that include the word *scandal*, and several python libraries to grab the text of those articles and store them to MongoDB for some natural language processing analytics.
+
+# <markdowncell>
+
+# These commands will install some of the dependencies for this project:
+
+# <codecell>
+
+%%bash
+pip install pymongo
+pip install requests
+pip install lxml
+pip install cssselect
 
 # <codecell>
 
@@ -37,9 +47,13 @@ import datetime as dt
 
 # ###Mongodb
 
+# <markdowncell>
+
+# We need to connect to the database, assuming it's already running (`mongod` from the terminal)
+
 # <codecell>
 
-connection = pymongo.Connection( "localhost", 27017 )
+connection = pymongo.Connection("localhost", 27017 )
 db = connection.nyt
 
 # <markdowncell>
@@ -50,6 +64,10 @@ db = connection.nyt
 
 from key import apikey
 apiparams = {'api-key': apikey}
+
+# <rawcell>
+
+# The first thing we need to get is the urls for all the articles that match our search criterion. This is a bit convoluted, since I couldn't find a way to search for *republican OR democrat*, so I ended up just repeating the query both times. I found out that there are lots of really interesting curated details you can search for, such as searching for articles pertaining to certain geographic areas, people or organizations. I used this to narrow the results down to the US, restricted the dates to between 1992-2013, and just asked for title, URL and date to use as unique identifiers.
 
 # <codecell>
 
