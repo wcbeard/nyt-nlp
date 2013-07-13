@@ -1,6 +1,19 @@
 # -*- coding: utf-8 -*-
 # <nbformat>3.0</nbformat>
 
+# <markdowncell>
+
+# #Topic detection with Pandas and Gensim
+# 
+# * Explore gensim
+# * Show off some of pandas capabilities for data-wrangling
+# 
+# I grabbed the ggplot-esque [plot settings](http://matplotlib.org/users/customizing.html) from the [Probabilistic Programming for Hackers](https://github.com/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-Hackers/tree/master/styles)
+
+# <codecell>
+
+import itertools
+
 # <codecell>
 
 from __future__ import division
@@ -8,7 +21,7 @@ import json
 import pandas as pd
 import numpy as np
 from time import sleep
-from itertools import count, imap, starmap, cycle
+from itertools import count, imap, starmap, cycle, izip
 import pymongo
 import re
 from operator import itemgetter
@@ -16,6 +29,7 @@ from gensim import corpora, models, similarities
 import gensim
 from collections import Counter
 import datetime as dt
+import matplotlib.pyplot as plt
 
 # <codecell>
 
@@ -38,13 +52,13 @@ db = connection.nyt
 
 # <codecell>
 
-raw = list(db.raw_text.find())
+raw = list(db.raw_text.find({'text': {'$exists': True}}))
 
-# <codecell>
+# <rawcell>
 
-for dct in raw:
-    if 'title' not in dct:
-        dct['title'] = ''
+# for dct in raw:
+#     if 'title' not in dct:
+#         dct['title'] = ''
 
 # <markdowncell>
 
@@ -53,17 +67,19 @@ for dct in raw:
 # <codecell>
 
 def format(txt):
-    tt = re.sub(r"'s\b", '', txt).lower()
-    tt = re.sub(r'[\.\,\;\:\'\"\(\)\&\%\*\+\[\]\=\?\!/]', '', tt)    
-    tt = re.sub(r' *\$[0-9]\S* ?', ' <money> ', tt)    
+    tt = re.sub(r"'s\b", '', txt).lower()  #possessives
+    tt = re.sub(r'[\.\,\;\:\'\"\(\)\&\%\*\+\[\]\=\?\!/]', '', tt)  #weird stuff
+    tt = re.sub(r' *\$[0-9]\S* ?', ' <money> ', tt)  #dollar amounts
     tt = re.sub(r' *[0-9]\S* ?', ' <num> ', tt)    
-    tt = re.sub(r'[\-\s]+', ' ', tt)
+    tt = re.sub(r'[\-\s]+', ' ', tt)  #hyphen -> space
+    tt = re.sub(r' [a-z] ', ' ', tt)  # single letter -> space
     return tt.strip().split()
 
 dmap = lambda dct, a: [dct[e] for e in a]
 
 # <codecell>
 
+#texts = [format(doc.get('text', '')) for doc in raw]
 texts = [format(doc['text']) for doc in raw]
 dictionary = corpora.Dictionary(texts)
 corpus = [dictionary.doc2bow(text) for text in texts]
@@ -73,32 +89,99 @@ tcorpus = dmap(tfidf, corpus)
 # <codecell>
 
 #lda = models.ldamodel.LdaModel(corpus=tcorpus, id2word=dictionary, num_topics=15, update_every=0, passes=20)
-model = models.lsimodel.LsiModel(corpus=tcorpus, id2word=dictionary, num_topics=6)
+np.random.seed(42)
+model = models.lsimodel.LsiModel(corpus=tcorpus, id2word=dictionary, num_topics=15)
 
 # <markdowncell>
 
 # ##Analysis
 
+# <markdowncell>
+
+# As far as I know, the only way to get the topic information for each article after fitting the model is looping through and manually grabbing the topic-score list for each article. If you have a slow computer like mine, this python-side looping may take a while.
+
 # <codecell>
 
-topic_data = []
-_topic_stats = []
-#_kwargs = dict(formatted=0, topn=15, topics=None)
-_kwargs = dict(formatted=0, num_words=15)
+_kwargs = dict(formatted=0, num_words=20)
 topic_words = [[w for _, w in tups] for tups in model.show_topics(**_kwargs)]
 
-for tit, _text, date in imap(itemgetter(u'title', 'text', 'date'), raw):
-    text = format(_text)
-    _srtd = sorted(model[dictionary.doc2bow(text)], key=itemgetter(1), reverse=1)#[:2]
-    top, score = _srtd[:2][0]
+# <codecell>
+
+raw[0]
+
+# <codecell>
+
+itertools.imap(lambda i: i, range(8))
+
+# <codecell>
+
+#imap(itemgetter(u'title', 'text', 'date'), raw):
+
+# <codecell>
+
+it.next()
+
+# <codecell>
+
+_text, (tit, date) = it.next()
+
+# <codecell>
+
+it = itertools.izip(corpus, ((d['title'], d['date']) for d in raw))
+topic_data = []  #for each article, collect topic with highest score
+_topic_stats = []  # gets all topic-score pairs for each document
+
+for corp_txt, (tit, date) in it:
+    _srtd = sorted(model[corp_txt], key=itemgetter(1), reverse=1)
+    top, score = _srtd[0]
     topic_data.append((tit, date, top, score))
     _topic_stats.append(_srtd)
 
-topic_stats = [tup for tups in _topic_stats for tup in tups]
+topic_stats = [tup for tups in _topic_stats for tup in tups]  #flatten list(tuples) -> list
+search = lambda wrd: sorted(((b['title'], b['date'].year) for b in filter(lambda x: wrd in x['text'].lower(), raw)), key=itemgetter(1))  
+
+# <markdowncell>
+
+# The `topic_data` and `_topic_stats` lists keep data on each article and sorted lists of topic-score tuples:
+
+# <codecell>
+
+print topic_data[0]
+print _topic_stats[0]
+
+# <codecell>
+
+set(map(len, _topic_stats))
+
+# <codecell>
+
+def searchf(term, fields=['title', 'date', 'url'], sort=None, reverse=True):
+    ixs = [i for i, txt in enumerate(texts) if term in txt]
+    items = itemgetter(*fields)
+    res = [(raw[i], i) for i in ixs]
+    if sort:
+        res = sorted(res, key=lambda x: x[0][sort], reverse=reverse)
+    return [(items(e), i) for e, i in res]
+
+# <codecell>
+
+print raw[1805]['text'].splitlines()[0]
+
+# <rawcell>
+
+# searchf('bradley', fields=['date'], sort='date')
+
+# <codecell>
+
+search(' n.s.a')
 
 # <codecell>
 
 pd.DataFrame(zip(*topic_words))
+
+# <codecell>
+
+him
 
 # <codecell>
 
@@ -118,6 +201,10 @@ pd.options.display.max_colwidth = 100
 
 # search('enron')
 
+# <markdowncell>
+
+# Now we can put the topic information into pandas, for faster, easier analysis.
+
 # <codecell>
 
 _df = pd.DataFrame(topic_data, columns=['Title', 'Date', 'Topic', 'Score'])
@@ -129,7 +216,20 @@ df.head()
 
 # <codecell>
 
-df.Topic.value_counts()
+df.shape
+
+# <markdowncell>
+
+# By plotting the distribution of topic labels for each document, we can see that the detected topics are not very evenly distributed.
+
+# <codecell>
+
+vc = df.Topic.value_counts()
+plt.bar(vc.index, vc)
+
+# <rawcell>
+
+# df.Topic.value_counts()
 
 # <codecell>
 
@@ -140,15 +240,7 @@ topic_mean = sdf.groupby('Topic').mean()['Score']
 
 # <codecell>
 
-topic_mean
-
-# <codecell>
-
-sdf.head()
-
-# <codecell>
-
-df.head()
+topic_stats[:4]
 
 # <codecell>
 
@@ -175,16 +267,75 @@ df.head()
 plt.figsize(6, 4)
 df.Topic.hist()
 
+# <markdowncell>
+
+# One high level question I had was if certain topics can be seen varying in frequency over time. Using Pandas' `groupby` can be used to aggregate the article counts by year and topic:
+
 # <codecell>
 
 year = lambda x: x.year
-#df.reset_index().groupby(['Date', 'Topic']).size()
-sz = df.set_index('Date').groupby(['Topic', year]).size()
-sz.index.names[1] = 'Year'
+sz = df.set_index('Date').groupby(['Topic', year]).size()#.reset_index()
+sz.index.names, sz.name = ['Topic', 'Year'], 'Count'
+sz = sz.reset_index()
+sz.head()
+
+# <markdowncell>
+
+# which can then be reshapen with `pivot`, giving us a Year $\times$ Topic grid:
+
+# <codecell>
+
+top_year = sz.pivot(index='Year', columns='Topic', values='Count').fillna(0)
+top_year
+
+# <markdowncell>
+
+# In Pandas land it's easy to find lots of basic information about the distribution--a simple boxplot will give us a good view of the min/median/max number of times a topic was represented over the 21 years.
+
+# <codecell>
+
+plt.figsize(12, 8)
+_ = top_year.boxplot()
+
+# <markdowncell>
+
+# We can see topics 8 and 10 hardly show up, while in typical years the first two topics are heavily represented. (And for the curious, viewing the distribution of scandalous articles across topics for a given year is as easy as `top_year.T.boxplot()`.)
 
 # <rawcell>
 
-# sz
+# _ = top_year.T.boxplot()
+
+# <markdowncell>
+
+# The `plot` method can automatically plot each column as a separate time series, which can give a look at the trend for each scandal-topic:
+
+# <codecell>
+
+_ = top_year.plot()
+
+# <codecell>
+
+gensim.models.lsimodel?
+
+# <codecell>
+
+gensim.utils.random.setstate(
+
+# <markdowncell>
+
+# But because topics like (7 and 13) are
+
+# <codecell>
+
+(top_year / top_year.sum()).plot()
+
+# <markdowncell>
+
+# And averaging for all the topics per year shows spikes in 1998 and 2006 for number of articles including the term *scandal*:
+
+# <codecell>
+
+top_year.mean(axis=1).plot()
 
 # <rawcell>
 
@@ -198,7 +349,7 @@ styles = cycle(['-'])#, '--', '-.', ':'])
 
 # <codecell>
 
-def plottable(k, gp, thresh=.15):
+def plottable(k, gp, thresh=None):
     _gp = gp.set_index('Year')[0]
     _gp = (_gp / _gp.sum())
     mx = _gp.max()    
@@ -208,17 +359,21 @@ def plottable(k, gp, thresh=.15):
 
 # <codecell>
 
-yr_grps = filter(bool, starmap(plottable, sz.reset_index().groupby('Topic')))
+yr_grps = filter(None, starmap(plottable, sz.reset_index().groupby('Topic')))
+
+# <codecell>
+
+yr_grps
 
 # <codecell>
 
 plt.figsize(10, 8)
-cols = cycle('rgbcmyk')
+cols = cycle('rbcykmg')
 _rep = int(round(len(yr_grps) / 2))
-styles = cycle('-')  #cycle((['-'] * _rep) + (['--'] * _rep))
+#styles = cycle('-')  #cycle((['-'] * _rep) + (['--'] * _rep))
 tops = []
 for k, gp in yr_grps:
-    gp.plot(color=cols.next(), ls=styles.next())
+    gp.plot(color=cols.next())
     print '{}, {}, {:.1f}'.format(k, gp.idxmax(), gp.max() * 100)
     tops.append(k)
     #gp.set_index('Year')[0].plot()
@@ -265,6 +420,22 @@ _cnt.dct
 # <codecell>
 
 _topic_words = [', '.join(w for w in wds) for wds in topic_words]
+
+# <codecell>
+
+df[df.Topic == 2].head().ix[367][0]
+
+# <codecell>
+
+search(' n.s.a')
+
+# <codecell>
+
+pd.DataFrame(topic_words).T
+
+# <codecell>
+
+_topic_words
 
 # <rawcell>
 
@@ -434,10 +605,6 @@ raw[:2]
 
 # <codecell>
 
-df.groupby(year).size().plot()
-
-# <codecell>
-
 df['Year'] = df.index.map(year)
 
 # <codecell>
@@ -473,16 +640,6 @@ gp
 # <codecell>
 
 sz.plot()
-
-# <codecell>
-
-for mod in lda, olda, alda:
-    #print mod[tcorpus[0]]
-#    print ' '.join(texts[0])
-    topic_list = [[w for _, w in tups] for tups in mod.show_topics(formatted=0, topn=15, topics=None)]
-    for top, score in sorted(mod[tcorpus[0]], key=itemgetter(1), reverse=1):
-        print top, ', '.join(topic_list[top])
-    print
 
 # <codecell>
 
