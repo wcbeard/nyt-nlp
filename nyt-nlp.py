@@ -8,11 +8,7 @@
 # * Explore gensim
 # * Show off some of pandas capabilities for data-wrangling
 # 
-# I grabbed the ggplot-esque [plot settings](http://matplotlib.org/users/customizing.html) from the [Probabilistic Programming for Hackers](https://github.com/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-Hackers/tree/master/styles)
-
-# <codecell>
-
-import itertools
+# I grabbed the ggplot-esque [plot settings](http://matplotlib.org/users/customizing.html) from [Probabilistic Programming for Hackers](https://github.com/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-Hackers/tree/master/styles)
 
 # <codecell>
 
@@ -21,7 +17,8 @@ import json
 import pandas as pd
 import numpy as np
 from time import sleep
-from itertools import count, imap, starmap, cycle, izip
+#from itertools import count, imap, starmap, cycle, izip
+import itertools
 import pymongo
 import re
 from operator import itemgetter
@@ -47,7 +44,7 @@ mu.psettings(pd)
 
 # <codecell>
 
-connection = pymongo.Connection( "localhost", 27017 )
+connection = pymongo.Connection("localhost", 27017)
 db = connection.nyt
 
 # <codecell>
@@ -205,10 +202,27 @@ pd.options.display.max_colwidth = 100
 
 # Now we can put the topic information into pandas, for faster, easier analysis.
 
+# <rawcell>
+
+# topic_words
+
 # <codecell>
 
-_df = pd.DataFrame(topic_data, columns=['Title', 'Date', 'Topic', 'Score'])
-df = _df#.set_index('Date').sort_index()#.head()
+len(topic_words)
+
+# <codecell>
+
+_topic_stats[0]
+
+# <codecell>
+
+topic_data[:4]
+
+# <codecell>
+
+df = pd.DataFrame(topic_data, columns=['Title', 'Date', 'Topic', 'Score'])
+df.Date = df.Date.map(lambda d: d.date())
+#df = _df#.set_index('Date').sort_index()#.head()
 
 # <codecell>
 
@@ -249,31 +263,22 @@ center_list = lambda lst: [(top, center(top, score)) for top, score in lst]
 centered_scores = [max(center_list(lst), key=itemgetter(1)) for lst in _topic_stats]
 second_scores = [sorted(lst, key=itemgetter(1),  reverse=1)[:2][-1] for lst in _topic_stats]
 
-# <codecell>
-
-df.Topic, df.Score = zip(*centered_scores)
-#df.Topic, df.Score = zip(*second_scores)
-
-# <codecell>
-
-df = _df.set_index('Date').sort_index()#.head()
-
-# <codecell>
-
-df.head()
-
-# <codecell>
-
-plt.figsize(6, 4)
-df.Topic.hist()
-
 # <markdowncell>
 
 # One high level question I had was if certain topics can be seen varying in frequency over time. Using Pandas' `groupby` can be used to aggregate the article counts by year and topic:
 
 # <codecell>
 
+d = df.Date[0]
+str(d.year) + str(d.month).zfill(2)
+
+# <codecell>
+
+
+# <codecell>
+
 year = lambda x: x.year
+#year = lambda d: d.strftime('%Y%m')
 sz = df.set_index('Date').groupby(['Topic', year]).size()#.reset_index()
 sz.index.names, sz.name = ['Topic', 'Year'], 'Count'
 sz = sz.reset_index()
@@ -286,7 +291,7 @@ sz.head()
 # <codecell>
 
 top_year = sz.pivot(index='Year', columns='Topic', values='Count').fillna(0)
-top_year
+top_year[:20]
 
 # <markdowncell>
 
@@ -299,7 +304,9 @@ _ = top_year.boxplot()
 
 # <markdowncell>
 
-# We can see topics 8 and 10 hardly show up, while in typical years the first two topics are heavily represented. (And for the curious, viewing the distribution of scandalous articles across topics for a given year is as easy as `top_year.T.boxplot()`.)
+# Topics 8, 9, 11 and 12 hardly show up, while in typical years topics like 1 and 2 are heavily represented. The plot even shows that articles most closely associated with topic 2 actually show up 250 times for one year.
+# 
+# (For the curious, viewing the distribution of scandalous articles across topics for a given year is as easy as `top_year.T.boxplot()`.)
 
 # <rawcell>
 
@@ -315,27 +322,124 @@ _ = top_year.plot()
 
 # <codecell>
 
-gensim.models.lsimodel?
+pd.stats.moments.rolling_mean(top_year, 6).plot()
 
 # <codecell>
 
-gensim.utils.random.setstate(
+top_year.
+
+# <markdowncell>
+
+# The number of times articles with different topics show up in a year varies a lot for most of the topics. It even looks like there are a few years, like 1998 and 2006 where several topics spike. This can be verified by plotting the sum of articles for all topics in a given year:
+
+# <codecell>
+
+_ = top_year.sum(axis=1).plot()
+
+# <markdowncell>
+
+# ###Topic words
+
+# <codecell>
+
+top_year
+
+# <codecell>
+
+pd.DataFrame([top_year.sum(), top_year.max()]).T.sort(0)
+
+# <codecell>
+
+top_wds_df
+
+# <codecell>
+
+
+# <codecell>
+
+
+# <markdowncell>
+
+# Stacking all the words of the topics and getting the value counts gives an idea of how often certain words show up among the topics:
+
+# <codecell>
+
+pd.options.display.max_rows = 22
+top_wds_df = pd.DataFrame(topic_words).T
+vc = top_wds_df.stack(0).value_counts()
+vc
+
+# <codecell>
+
+pd.options.display.max_rows = 400
+
+# <markdowncell>
+
+# It looks like the most common topic words are *page*, *enron*, *bush* and *clinton*, with *gore* just behind. It seems these words might be less helpful at finding the meaning of topics since they're closely associated with practically every topic of political scandal in the past two decades. It shouldn't be surprising that presidents show up among the most common topic words, and a cursory look at articles with the word *page* (using `search`, defined above) makes it look like the word shows up both for sexual scandals involving pages, along with a bunch references to 'front page scandals' or the op-ed page.
+# 
+# For a better view
+
+# <rawcell>
+
+# search('page')
+
+# <codecell>
+
+top_wd_freq = {w: vc.max() - cnt for w, cnt in vc.iteritems()}
+_ = top_wds_df.apply(lambda s: s.map(top_wd_freq)).boxplot()
+
+# <codecell>
+
+top_wd_freq = {w: '{}-{}'.format(w, vc.max() - cnt) for w, cnt in vc.iteritems()}
+top_wds_df.apply(lambda s: s.map(top_wd_freq))
+
+# <markdowncell>
+
+# ##Story telling
+
+# <codecell>
+
+c = 0
+
+# <codecell>
+
+np.random.seed(c)
+print c
+c += 1
+top = df[df.Topic == 13]
+ix = np.random.choice(top.index, 15)
+top.ix[ix].sort('Date')#[:30]
+
+# <codecell>
+
+
+# <codecell>
+
+search('billion')
+
+# <codecell>
+
+13, 1, 2, 4
+
+# <codecell>
+
+c
+
+# <rawcell>
+
+# And lastly, 
+
+# <rawcell>
+
+# (top_year / top_year.sum()).sum(axis=1).plot()
 
 # <markdowncell>
 
 # But because topics like (7 and 13) are
 
-# <codecell>
-
-(top_year / top_year.sum()).plot()
-
 # <markdowncell>
 
 # And averaging for all the topics per year shows spikes in 1998 and 2006 for number of articles including the term *scandal*:
-
-# <codecell>
-
-top_year.mean(axis=1).plot()
 
 # <rawcell>
 
@@ -428,10 +532,6 @@ df[df.Topic == 2].head().ix[367][0]
 # <codecell>
 
 search(' n.s.a')
-
-# <codecell>
-
-pd.DataFrame(topic_words).T
 
 # <codecell>
 
