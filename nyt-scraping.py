@@ -17,7 +17,7 @@
 
 # <markdowncell>
 
-# These commands should install some of the dependencies for this project:
+# These commands should install some of the dependencies for this part of the project:
 # 
 #     pip install pymongo
 #     pip install requests
@@ -72,7 +72,7 @@ apiparams = {'api-key': apikey}
 
 # ...the first thing we need to get is the urls for all the articles that match our search criterion. [Big caveat: I used a v1 api query for the original dataset that I used, and modified it for v2 after discovering it].
 # 
-# I searched for *scandal* with the `q` parameter, and narrowed it down using *republican OR democrat* with the `f[ilter]q[uery]` parameter. I found out that there are lots of really interesting curated details you can use in the search, such as searching for articles pertaining to certain geographic areas, people or organizations (with a feature called *facets*. I used other parameters to restrict the dates to years 1992-2013, and just return certain fields I thought would be relevant.:
+# I searched for *scandal* with the `q` parameter, and narrowed it down using *republican OR democrat* with the `f[ilter]q[uery]` parameter. I found out that there are lots of really interesting curated details you can use in the search, such as searching for articles pertaining to certain geographic areas, people or organizations (with a feature called *facets*. I used other parameters to restrict the dates to years 1992-2013, and just return certain fields I thought would be relevant:
 
 # <codecell>
 
