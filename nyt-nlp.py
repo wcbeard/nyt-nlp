@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 # <nbformat>3.0</nbformat>
 
-# <codecell>
+# <markdowncell>
 
-{"Title": "NYT nlp",
-"Date": "2013-7-4",
-"Category": "ipython",
-"Tags": "nlp, ipython, gensim, pandas",
-"Author": "Chris"
-}
+# {"Title": "Modeling 20 years of scandals with python",
+# "Date": "2013-7-4",
+# "Category": "ipython",
+# "Tags": "nlp, ipython, gensim, pandas",
+# "slug": "scandal-modeling-with-python",
+# "Author": "Chris"
+# }
 
 # <markdowncell>
 
@@ -23,7 +24,7 @@
 # 
 # The IPython notebook for this post is available **here** (and I grabbed the ggplot-esque [plot settings](http://matplotlib.org/users/customizing.html) from [Probabilistic Programming for Hackers](https://github.com/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-Hackers/tree/master/styles)).
 # 
-# Let's get started by by picking up where we left off, and pull all those articles out of mongo.
+# Let's get started by by picking up where we left off scraping the data in [part 1](|filename|nyt-scraping.ipynb), and pull all those articles out of mongo.
 
 # <codecell>
 
@@ -32,7 +33,6 @@ import json
 import pandas as pd
 import numpy as np
 from time import sleep
-#from itertools import count, imap, starmap, cycle, izip
 import itertools
 import pymongo
 import re
@@ -43,10 +43,8 @@ from collections import Counter
 import datetime as dt
 import matplotlib.pyplot as plt
 
-# <codecell>
-
-import myutils as mu
-mu.psettings(pd)
+pd.options.display.max_columns = 30
+pd.options.display.notebook_repr_html = False
 
 # <codecell>
 
