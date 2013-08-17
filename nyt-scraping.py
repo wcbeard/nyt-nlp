@@ -13,11 +13,11 @@
 
 # <markdowncell>
 
-# This post uses the [New York Times API](http://developer.nytimes.com/docs/read/article_search_api_v2) to search for articles on US politics that include the word *scandal*, and several python libraries to grab the text of those articles and store them to MongoDB for some natural language processing analytics.
+# This post uses the [New York Times API](http://developer.nytimes.com/docs/read/article_search_api_v2) to search for articles on US politics that include the word *scandal*, and several python libraries to grab the text of those articles and store them to MongoDB for some natural language processing analytics (in [part 2](|filename|/nyt-nlp.ipynb) of this project).
 
 # <markdowncell>
 
-# These commands will install some of the dependencies for this project:
+# These commands should install some of the dependencies for this project:
 # 
 #     pip install pymongo
 #     pip install requests
@@ -70,15 +70,17 @@ apiparams = {'api-key': apikey}
 
 # <markdowncell>
 
-# ...the first thing we need to get is the urls for all the articles that match our search criterion. This is a bit convoluted, since I couldn't find a way to search for *republican OR democrat*, so I ended up just repeating the query both times. I found out that there are lots of really interesting curated details you can use in the search, such as searching for articles pertaining to certain geographic areas, people or organizations. I used some of these features to narrow the results down to the US, restricted the dates to between 1992-2013, and just asked for title, URL and date to use as unique identifiers.
+# ...the first thing we need to get is the urls for all the articles that match our search criterion. [Big caveat: I used a v1 api query for the original dataset that I used, and modified it for v2 after discovering it].
+# 
+# I searched for *scandal* with the `q` parameter, and narrowed it down using *republican OR democrat* with the `f[ilter]q[uery]` parameter. I found out that there are lots of really interesting curated details you can use in the search, such as searching for articles pertaining to certain geographic areas, people or organizations (with a feature called *facets*. I used other parameters to restrict the dates to years 1992-2013, and just return certain fields I thought would be relevant.:
 
 # <codecell>
 
 page = 0
 
 q = 'http://api.nytimes.com/svc/search/v2/articlesearch.json?'
-params = {'query': 'geo_facet:[UNITED STATES]',
-            'fq': 'republican* OR democrat* AND scandal*',
+params = {'q': 'scandal*',
+            'fq': 'republican* OR democrat*',
             'fl': 'web_url,headline,pub_date,type_of_material,document_type,news_desk',
             'begin_date': '19920101',
             'end_date': '20131231',
@@ -89,7 +91,7 @@ params = {'query': 'geo_facet:[UNITED STATES]',
 
 # <markdowncell>
 
-# After constructing the query, we grab the search results with [requests](http://docs.python-requests.org/en/latest/). There's no way to tell how many results there will be, so we go as long as we can, shoving everything into MongoDB, incrementing the `offset` query parameter and pausing for a break before the next page of results (the NYT has a limit on how many times you can query them per second). From the output below, we can see that there are about $49 \times 10 =490$ articles mentioning *democrat* and *scandal* under US politics (and a lot more mentioning *republican*).
+# After constructing the query, we grab the search results with [requests](http://docs.python-requests.org/en/latest/). There's no way to tell how many results there will be, so we go as long as we can, shoving everything into MongoDB, incrementing the `offset` query parameter and pausing for a break before the next page of results (the NYT has a limit on how many times you can query them per second).
 
 # <codecell>
 
@@ -99,8 +101,6 @@ def memoize(f):
     def wrapper(*args, **kwargs):
         kw_tup = tuple((kargname, tuple(sorted(karg.items()))) for kargname, karg in kwargs.items())
         memo_args = args + kw_tup
-        #print kwargs
-        #print kw_tup
         try:
             return wrapper.cache[memo_args]
         except KeyError:
@@ -139,7 +139,7 @@ for page in itertools.count():  #keep looping indefinitely
 
 # <markdowncell>
 
-# We can see from the response's metadata that we should expect about 11876 article links to be saved to our database.
+# We can see from the response's metadata that we should expect about 11876 article links to be saved to our database:
 
 # <codecell>
 
@@ -159,7 +159,7 @@ search_nyt(q, params=params)['response']['meta']
 
 # <markdowncell>
 
-# The scraping wasn't as difficult as I was expecting; over the 20 or so years that I searched for, the body text of the articles could be found by looking at 5 html elements (formatted as CSS selectors in `_sels` below). The following two functions do most of the scraping work-- `get_text`...well...gets the text from the `CSSSelector` parser, and the `grab_text` uses this after pulling the html with requests again.
+# The scraping wasn't as difficult as I was expecting; over the 20 or so years that I searched for, the body text of the articles could be found by looking at 5 html elements (formatted as CSS selectors in `_sels` below). The following two functions do most of the scraping work-- `get_text`...well...gets the text from the `CSSSelector` parser, and `grab_text` uses this after pulling the html with requests.
 
 # <codecell>
 
@@ -184,22 +184,19 @@ def grab_text(url, verbose=True):
             return '\n'.join(map(get_text, text_elems))
     return ''
 
-#Selectors where text of articles can be found; quite a few patterns among NYT articles
+#Selectors where text of articles can be found; several patterns among NYT articles
 _sels =  ['p[itemprop="articleBody"]', "div.blurb-text", 'div#articleBody p', 'div.articleBody p', 'div.mod-nytimesarticletext p']
 all_pages = {'pagewanted': 'all'}
 
 # <markdowncell>
 
-# And here is the main loop and counter. Pretty simple, huh?
+# And here is the main loop and counter. Pretty simple.
 # 
-# On the first run, the output counts up from zero, but since political scandals seem to be popping up by the hour, I've updated the search a few times, but only pulling articles that aren't already in the database (hence the mostly underscored output below).
+# On the first run, the output counts up from zero, but since political scandals seem to be popping up by the hour, I've updated the search a few times, but only pulling articles that aren't already in the database (hence the very sparse output below).
 
 # <codecell>
 
 exceptions = []
-
-# <codecell>
-
 grab_text.c = 0
 
 for doc in db.raw_text.find(timeout=False):
@@ -212,11 +209,14 @@ for doc in db.raw_text.find(timeout=False):
             print ':(',
             continue
         db.raw_text.update({'url': doc['url']}, {'$set': {'text': txt}})
-    else: #if grab_text.c % 100 == 0:
+    else:
         pass
-        #print '_',
 
 db.raw_text.remove({'text': u''})  #there was one weird result that didn't have any text...
+
+# <markdowncell>
+
+# I used the following code to clean up after I downloaded most of the articles and modified the query, which changed some of the output fields. This just renames the original fields and sets the `title` to an empty string where there was none. 
 
 # <codecell>
 
@@ -229,26 +229,14 @@ for doc in db.raw_text.find(timeout=False):
     if ('title' not in doc) and ('headline' not in doc):
         #cleanup
         db.raw_text.update({'url': doc['url']}, {'$set': {'title': ''}})
-    
+
+# <markdowncell>
+
+# A few of the articles set off exceptions when I tried pulling them; these weren't included in the dataset:
 
 # <codecell>
 
 exceptions
-
-# <markdowncell>
-
-# And, we got more than 870 scandalous stories...but still counting!
-
-# <codecell>
-
-def myitems(*items):
-    "Itemgetter that returns what it can"
-    def getter(e):
-        try:
-            return [e[i] for i in items]
-        except KeyError:
-            return [e[i] for i in items if i in e]
-    return getter    
 
 # <codecell>
 
@@ -256,28 +244,11 @@ res = map(itemgetter('date', 'url', 'title'), sorted(db.raw_text.find(), key=ite
 
 # <codecell>
 
-res = filter(lambda d: 'title' not in d, db.raw_text.find())
+res[:3]
 
-# <codecell>
+# <markdowncell>
 
-res = [d.keys() for d in db.raw_text.find()]
-
-# <codecell>
-
-'headline', 'pub_date'
-
-# <codecell>
-
-s = u'Weiner\u2019s Surprising Rebound From Scandal'
-print s
-
-# <codecell>
-
-res[:40]
-
-# <codecell>
-
-len(res)
+# And, we got more than 9700 scandalous stories...but still counting!
 
 # <codecell>
 
