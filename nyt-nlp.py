@@ -22,7 +22,7 @@
 # 
 # This also gave me an excuse to explore [gensim](http://radimrehurek.com/gensim/) and show off some of [pandas](http://pandas.pydata.org/) capabilities for data-wrangling.
 # 
-# The IPython notebook for this post is available **here** (and I grabbed the ggplot-esque [plot settings](http://matplotlib.org/users/customizing.html) from [Probabilistic Programming for Hackers](https://github.com/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-Hackers/tree/master/styles)).
+# The IPython notebook for this post is available at [this repo](https://github.com/d10genes/nyt-nlp) (and I grabbed the ggplot-esque [plot settings](http://matplotlib.org/users/customizing.html) from [Probabilistic Programming for Hackers](https://github.com/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-Hackers/tree/master/styles)).
 # 
 # Let's get started by by picking up where we left off scraping the data in [part 1](|filename|nyt-scraping.ipynb), and pull all those articles out of mongo.
 

@@ -259,5 +259,5 @@ len(list(db.raw_text.find()))
 # ###Conclusion
 # Though it turned out to be pretty brief, I thought this first part of my NYT scandals project deserved its own post.
 # Luckily it doesn't take too much effort or space when you're working with a nice, expressive language, though.
-# And you can reproduce this for yourself--you can find a copy of this notebook on github.
+# And you can reproduce this for yourself--you can find a copy of this notebook on [Github](https://github.com/d10genes/nyt-nlp).
 
