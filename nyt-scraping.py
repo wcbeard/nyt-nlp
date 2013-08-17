@@ -3,11 +3,11 @@
 
 # <markdowncell>
 
-# {"Title": "NYT nlp",
+# {"Title": "Scraping NYT for Scandals",
 # "Date": "2013-7-4",
 # "Category": "ipython",
 # "Tags": "nlp, ipython",
-# "slug": "slug-slug-slug",
+# "slug": "nyt-scraping",
 # "Author": "Chris"
 # }
 
@@ -29,7 +29,6 @@
 import requests
 import json
 from time import sleep
-#from itertools import count
 import itertools
 import functools
 from lxml.cssselect import CSSSelector
@@ -76,21 +75,13 @@ apiparams = {'api-key': apikey}
 # <codecell>
 
 page = 0
-#party = 'republican'
-party = 'democrat'
 
-q = 'http://api.nytimes.com/svc/search/v2/articlesearch?'
 q = 'http://api.nytimes.com/svc/search/v2/articlesearch.json?'
-params = {#'query': 'republican OR democrat AND scandal geo_facet:[UNITED STATES]',#.format(party),
-          'query': 'geo_facet:[UNITED STATES]',#.format(party),
-          'fq': 'republican* OR democrat* AND scandal*', # AND news_desk:("National")',
-         # 'fq': 'news_desk:("National")',
-
- #         'query': 'body:scandal+{} geo_facet:[UNITED STATES]'.format(party),
-          'fl': 'web_url,headline,pub_date,type_of_material,document_type,news_desk,keywords',
+params = {'query': 'geo_facet:[UNITED STATES]',
+            'fq': 'republican* OR democrat* AND scandal*',
+            'fl': 'web_url,headline,pub_date,type_of_material,document_type,news_desk',
             'begin_date': '19920101',
             'end_date': '20131231',
-#            'fields': 'title,url,date',
             'page': page,
             'api-key': apikey,
             'rank': 'newest',
@@ -99,22 +90,6 @@ params = {#'query': 'republican OR democrat AND scandal geo_facet:[UNITED STATES
 # <markdowncell>
 
 # After constructing the query, we grab the search results with [requests](http://docs.python-requests.org/en/latest/). There's no way to tell how many results there will be, so we go as long as we can, shoving everything into MongoDB, incrementing the `offset` query parameter and pausing for a break before the next page of results (the NYT has a limit on how many times you can query them per second). From the output below, we can see that there are about $49 \times 10 =490$ articles mentioning *democrat* and *scandal* under US politics (and a lot more mentioning *republican*).
-
-# <codecell>
-
-page
-
-# <codecell>
-
-params
-
-# <codecell>
-
-import simplejson
-
-# <codecell>
-
-r.url
 
 # <codecell>
 
@@ -129,6 +104,7 @@ def memoize(f):
         try:
             return wrapper.cache[memo_args]
         except KeyError:
+            print '*',
             wrapper.cache[memo_args] = res = f(*args, **kwargs)
             return res
     wrapper.cache = {}
@@ -138,7 +114,9 @@ def memoize(f):
 @memoize
 def search_nyt(query, params={}):
     r = requests.get(query, params=params)
-    return json.loads(r.content)
+    res = json.loads(r.content)
+    sleep(.1)
+    return res
 
 # <codecell>
 
@@ -146,81 +124,26 @@ fdate = lambda d, fmt='%Y%m%d': dt.datetime.strptime(d, fmt)
 
 for page in itertools.count():  #keep looping indefinitely
     params.update({'page': page})  #fetch another ten results from the next page
-    res = search_nyt(q, params=params)["response"].copy()
-#    r = requests.get(q, params=params)
-#    res = json.loads(r.content)["response"]
+    res = search_nyt(q, params=params)["response"]
     if res['docs']:
         for dct in res['docs']:
             dct = dct.copy()  #for memoization purposes
             url = dct.pop('web_url')
             dct['pub_date'] = fdate(dct['pub_date'].split('T')[0], '%Y-%m-%d')  #string -> format as datetime object
             dct['headline'] = dct['headline']['main']
-            print dct
-#            db.raw_text.update({'url': url}, {'$set': dct}, upsert=True)
+            db.raw_text.update({'url': url}, {'$set': dct}, upsert=True)
     else:  #no more results
         break
-    print page,
-    sleep(.05)
-    break
-#urls = {r['url']: r for r in url_lst}    
-#del url_lst
+    if page % 100 == 0:
+        print page,
+
+# <markdowncell>
+
+# We can see from the response's metadata that we should expect about 11876 article links to be saved to our database.
 
 # <codecell>
 
-res
-
-# <codecell>
-
-search_nyt.cache
-
-# <codecell>
-
-dct
-
-# <codecell>
-
-jj = json.loads(r.content)
-jj['status']
-
-# <codecell>
-
-jj
-
-# <codecell>
-
-res['meta']
-
-# <codecell>
-
-','.join(['web_url', 'headline', 'pub_date', 'type_of_material', 'document_type'])
-
-# <codecell>
-
-relevant = itemgetter('web_url', 'headline', 'pub_date', 'type_of_material', 'document_type')
-
-# <codecell>
-
-rrs = itertools.imap(relevant, res['docs'])
-
-# <codecell>
-
-[date for _, _, date, _, _ in rrs]
-
-# <codecell>
-
-res['docs'][0]
-
-# <codecell>
-
-rr = json.loads(r.content)
-
-# <codecell>
-
-rr['response']
-
-# <codecell>
-
-res
+search_nyt(q, params=params)['response']['meta']
 
 # <markdowncell>
 
@@ -250,7 +173,7 @@ def get_text(e):
 
 def grab_text(url, verbose=True):
     "Main scraping function--given url, grabs html, looks for and returns article text"
-    if verbose:  #page counter
+    if verbose and (grab_text.c % verbose == 0):  #page counter
         print grab_text.c,
     grab_text.c += 1
     r = requests.get(url, params=all_pages)
@@ -273,20 +196,88 @@ all_pages = {'pagewanted': 'all'}
 
 # <codecell>
 
+exceptions = []
+
+# <codecell>
+
 grab_text.c = 0
-for doc in db.raw_text.find():
+
+for doc in db.raw_text.find(timeout=False):
     if ('url' in doc) and ('text' not in doc):
         # if we don't already have this in mongodb
-        txt = grab_text(doc['url'])
+        try:
+            txt = grab_text(doc['url'], verbose=1)        
+        except Exception, e:
+            exceptions.append((e, doc['url']))
+            print ':(',
+            continue
         db.raw_text.update({'url': doc['url']}, {'$set': {'text': txt}})
-    else:
-        print '_',
+    else: #if grab_text.c % 100 == 0:
+        pass
+        #print '_',
 
 db.raw_text.remove({'text': u''})  #there was one weird result that didn't have any text...
+
+# <codecell>
+
+for doc in db.raw_text.find(timeout=False):
+    if ('pub_date' in doc) and ('date' not in doc):
+        # cleanup from v1 queries
+        updates = {'date': doc['pub_date'],
+                   'title': doc['headline']}
+        db.raw_text.update({'url': doc['url']}, {'$set': updates})
+    if ('title' not in doc) and ('headline' not in doc):
+        #cleanup
+        db.raw_text.update({'url': doc['url']}, {'$set': {'title': ''}})
+    
+
+# <codecell>
+
+exceptions
 
 # <markdowncell>
 
 # And, we got more than 870 scandalous stories...but still counting!
+
+# <codecell>
+
+def myitems(*items):
+    "Itemgetter that returns what it can"
+    def getter(e):
+        try:
+            return [e[i] for i in items]
+        except KeyError:
+            return [e[i] for i in items if i in e]
+    return getter    
+
+# <codecell>
+
+res = map(itemgetter('date', 'url', 'title'), sorted(db.raw_text.find(), key=itemgetter('date'), reverse=1))
+
+# <codecell>
+
+res = filter(lambda d: 'title' not in d, db.raw_text.find())
+
+# <codecell>
+
+res = [d.keys() for d in db.raw_text.find()]
+
+# <codecell>
+
+'headline', 'pub_date'
+
+# <codecell>
+
+s = u'Weiner\u2019s Surprising Rebound From Scandal'
+print s
+
+# <codecell>
+
+res[:40]
+
+# <codecell>
+
+len(res)
 
 # <codecell>
 
